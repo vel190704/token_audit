@@ -1,0 +1,23 @@
+{
+  "name": "tokenized-audit-trail-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for tokenized audit trail system",
+  "main": "index.js",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "deploy:local": "npx hardhat run scripts/deploy.js --network localhost",
+    "deploy:testnet": "npx hardhat run scripts/deploy.js --network goerli",
+    "node": "npx hardhat node"
+  },
+  "keywords": ["blockchain", "audit", "ethereum", "solidity"],
+  "author": "SME Audit Trail Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "hardhat": "^2.17.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.0"
+  }
+}

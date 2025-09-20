@@ -1,0 +1,119 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:13
+    container_name: audit_trail_postgres
+    environment:
+      POSTGRES_DB: audit_trail_db
+      POSTGRES_USER: audit_user
+      POSTGRES_PASSWORD: audit_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - audit_trail_network
+
+  # Redis for Caching
+  redis:
+    image: redis:6-alpine
+    container_name: audit_trail_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - audit_trail_network
+
+  # IPFS Node
+  ipfs:
+    image: ipfs/go-ipfs:latest
+    container_name: audit_trail_ipfs
+    ports:
+      - "4001:4001"
+      - "5001:5001"
+      - "8080:8080"
+    volumes:
+      - ipfs_data:/data/ipfs
+    networks:
+      - audit_trail_network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: audit_trail_backend
+    environment:
+      - DATABASE_URL=postgresql://audit_user:audit_password@postgres:5432/audit_trail_db
+      - REDIS_URL=redis://redis:6379
+      - IPFS_API_URL=http://ipfs:5001
+      - ETHEREUM_RPC_URL=http://hardhat:8545
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+      - ipfs
+    volumes:
+      - ./backend:/app
+    networks:
+      - audit_trail_network
+    restart: unless-stopped
+
+  # Hardhat Local Network (Development only)
+  hardhat:
+    build:
+      context: ./smart-contracts
+      dockerfile: Dockerfile
+    container_name: audit_trail_hardhat
+    ports:
+      - "8545:8545"
+    volumes:
+      - ./smart-contracts:/app
+    networks:
+      - audit_trail_network
+    command: npx hardhat node --hostname 0.0.0.0
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: audit_trail_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_ETHEREUM_RPC_URL=http://localhost:8545
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - audit_trail_network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy (Production)
+  nginx:
+    image: nginx:alpine
+    container_name: audit_trail_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - audit_trail_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ipfs_data:
+
+networks:
+  audit_trail_network:
+    driver: bridge
