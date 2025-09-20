@@ -36,7 +36,7 @@ const AuditTrail = ({ account, web3, smeData }) => {
 
       const offset = (currentPage - 1) * itemsPerPage;
       const response = await axios.get(
-        `http://localhost:8000/api/audit-trail/${account}?limit=${itemsPerPage}&offset=${offset}`
+        `http://localhost:8001/api/audit-trail/${account}?limit=${itemsPerPage}&offset=${offset}`
       );
 
       setTransactions(response.data.transactions || []);
@@ -52,7 +52,7 @@ const AuditTrail = ({ account, web3, smeData }) => {
 
   const handleVerifyTransaction = async (tokenId) => {
     try {
-      const response = await axios.post(`http://localhost:8000/api/verify/${tokenId}`, {
+      const response = await axios.post(`http://localhost:8001/api/verify/${tokenId}`, {
         wallet_address: account
       });
 

@@ -19,7 +19,7 @@ services:
     image: redis:6-alpine
     container_name: audit_trail_redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     networks:
       - audit_trail_network
 
@@ -36,30 +36,7 @@ services:
     networks:
       - audit_trail_network
 
-  # Backend API
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: audit_trail_backend
-    environment:
-      - DATABASE_URL=postgresql://audit_user:audit_password@postgres:5432/audit_trail_db
-      - REDIS_URL=redis://redis:6379
-      - IPFS_API_URL=http://ipfs:5001
-      - ETHEREUM_RPC_URL=http://hardhat:8545
-    ports:
-      - "8000:8000"
-    depends_on:
-      - postgres
-      - redis
-      - ipfs
-    volumes:
-      - ./backend:/app
-    networks:
-      - audit_trail_network
-    restart: unless-stopped
-
-  # Hardhat Local Network (Development only)
+  # Hardhat Local Network
   hardhat:
     build:
       context: ./smart-contracts
@@ -73,6 +50,29 @@ services:
       - audit_trail_network
     command: npx hardhat node --hostname 0.0.0.0
 
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: audit_trail_backend
+    environment:
+      - DATABASE_URL=postgresql://audit_user:audit_password@postgres:5432/audit_trail_db
+      - REDIS_URL=redis://redis:6379
+      - IPFS_API_URL=http://ipfs:5001
+      - ETHEREUM_RPC_URL=http://hardhat:8545
+    ports:
+      - "8001:8000"
+    depends_on:
+      - postgres
+      - redis
+      - ipfs
+    volumes:
+      - ./backend:/app
+    networks:
+      - audit_trail_network
+    restart: unless-stopped
+
   # Frontend
   frontend:
     build:
@@ -82,7 +82,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_API_URL=http://localhost:8001
       - REACT_APP_ETHEREUM_RPC_URL=http://localhost:8545
     depends_on:
       - backend
@@ -93,7 +93,7 @@ services:
       - audit_trail_network
     restart: unless-stopped
 
-  # Nginx Reverse Proxy (Production)
+  # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
     container_name: audit_trail_nginx

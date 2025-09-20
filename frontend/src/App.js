@@ -147,7 +147,7 @@ function App() {
 
   const checkSMERegistration = async (walletAddress) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/sme/${walletAddress}/stats`);
+      const response = await fetch(`http://localhost:8001/api/sme/${walletAddress}/stats`);
       if (response.ok) {
         const data = await response.json();
         setSmeData(data);

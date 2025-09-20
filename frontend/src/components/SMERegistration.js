@@ -30,7 +30,7 @@ const SMERegistration = ({ account, web3, onRegistrationSuccess }) => {
         return;
       }
 
-      const response = await axios.post('http://localhost:8000/api/sme/register', data);
+      const response = await axios.post('http://localhost:8001/api/sme/register', data);
       
       if (response.data) {
         toast.success('SME registered successfully!');

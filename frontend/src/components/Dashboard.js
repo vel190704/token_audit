@@ -21,16 +21,42 @@ const Dashboard = ({ account, web3, smeData, onDataUpdate }) => {
       setError(null);
 
       // Fetch SME statistics
-      const statsResponse = await axios.get(`http://localhost:8000/api/sme/${account}/stats`);
-      setStats(statsResponse.data);
+      const statsResponse = await axios.get(
+        `http://localhost:8001/api/dashboard/${account}`,
+        { timeout: 10000 }
+      );
+      
+      // Ensure we have default values for all required properties
+      const statsData = {
+        total_transactions: 0,
+        total_amount: 0.0,
+        verified_transactions: 0,
+        pending_transactions: 0,
+        recent_transactions: [],
+        company_name: 'Your SME',
+        ...statsResponse.data
+      };
+      
+      setStats(statsData);
 
       // Fetch recent transactions (limited to 5 for dashboard)
-      const auditResponse = await axios.get(`http://localhost:8000/api/audit-trail/${account}?limit=5`);
+      const auditResponse = await axios.get(`http://localhost:8001/api/audit-trail/${account}?limit=5`);
       setRecentTransactions(auditResponse.data.transactions || []);
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       setError('Failed to load dashboard data. Please try again.');
+      
+      // Set default data to prevent undefined errors
+      setStats({
+        total_transactions: 0,
+        total_amount: 0.0,
+        verified_transactions: 0,
+        pending_transactions: 0,
+        recent_transactions: [],
+        company_name: 'Your SME'
+      });
+      setRecentTransactions([]);
     } finally {
       setLoading(false);
     }
@@ -165,7 +191,7 @@ const Dashboard = ({ account, web3, smeData, onDataUpdate }) => {
             }}>
               <h4 style={{ color: 'white', margin: '0 0 0.5rem 0' }}>Total Transactions</h4>
               <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
-                {stats.statistics.total_transactions}
+                {stats?.total_transactions || 0}
               </p>
             </div>
 
@@ -178,7 +204,7 @@ const Dashboard = ({ account, web3, smeData, onDataUpdate }) => {
             }}>
               <h4 style={{ color: 'white', margin: '0 0 0.5rem 0' }}>Verified</h4>
               <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
-                {stats.statistics.verified_transactions}
+                {stats?.verified_transactions || 0}
               </p>
             </div>
 
@@ -191,7 +217,7 @@ const Dashboard = ({ account, web3, smeData, onDataUpdate }) => {
             }}>
               <h4 style={{ color: 'white', margin: '0 0 0.5rem 0' }}>Pending</h4>
               <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
-                {stats.statistics.pending_transactions}
+                {stats?.pending_transactions || 0}
               </p>
             </div>
 
@@ -204,7 +230,7 @@ const Dashboard = ({ account, web3, smeData, onDataUpdate }) => {
             }}>
               <h4 style={{ color: 'white', margin: '0 0 0.5rem 0' }}>Verification Rate</h4>
               <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
-                {Math.round(stats.statistics.verification_rate)}%
+                {stats?.total_transactions > 0 ? Math.round((stats?.verified_transactions || 0) / stats.total_transactions * 100) : 0}%
               </p>
             </div>
           </div>

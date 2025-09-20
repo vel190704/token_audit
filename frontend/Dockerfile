@@ -1,23 +1,24 @@
-FROM node:16-alpine
+FROM node:18-alpine
 
 WORKDIR /app
 
 # Install system dependencies
 RUN apk add --no-cache git curl
 
+# Create non-root user first
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001 -G nodejs
+
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies as root then change ownership
+RUN npm install && \
+    chown -R nextjs:nodejs /app
 
-# Copy source code
-COPY . .
+# Copy source code and fix ownership
+COPY --chown=nextjs:nodejs . .
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
-RUN chown -R nextjs:nodejs /app
 USER nextjs
 
 # Expose port

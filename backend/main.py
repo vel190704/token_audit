@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Bac
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List, Optional, Dict, Any
 import os
 import json
@@ -151,7 +152,7 @@ async def health_check():
     # Check database
     try:
         db = next(get_db())
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         health_status["database"] = "healthy"
         db.close()
     except Exception as e:
@@ -258,8 +259,117 @@ async def register_sme(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ SME registration failed: {str(e)}")
+        logger.error(f"❌ Error registering SME: {e}")
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
+
+@app.get("/api/dashboard/{wallet_address}")
+async def get_dashboard_data(wallet_address: str, db: Session = Depends(get_db)):
+    """Get dashboard statistics for an SME by wallet address"""
+    try:
+        # Find SME by wallet address
+        sme = db.query(SME).filter(SME.wallet_address == wallet_address.lower()).first()
+        if not sme:
+            return {
+                "sme_id": None,
+                "company_name": "Unregistered SME",
+                "total_transactions": 0,
+                "total_amount": 0.0,
+                "verified_transactions": 0,
+                "pending_transactions": 0,
+                "recent_transactions": [],
+                "wallet_address": wallet_address,
+                "registered": False
+            }
+        
+        # Get transaction statistics
+        transactions = db.query(Transaction).filter(Transaction.sme_id == sme.id).all()
+        
+        total_amount = sum(float(tx.amount or 0) for tx in transactions)
+        verified_count = len([tx for tx in transactions if tx.verification_status == 'verified'])
+        pending_count = len([tx for tx in transactions if tx.verification_status == 'pending'])
+        
+        # Get recent transactions (last 5)
+        recent_transactions = []
+        for tx in transactions[-5:]:
+            recent_transactions.append({
+                "token_id": tx.token_id,
+                "transaction_type": tx.transaction_type or "Unknown",
+                "amount": float(tx.amount or 0),
+                "created_at": tx.created_at.isoformat() if tx.created_at else None,
+                "verification_status": tx.verification_status or "pending"
+            })
+        
+        return {
+            "sme_id": sme.id,
+            "company_name": sme.company_name,
+            "total_transactions": len(transactions),
+            "total_amount": total_amount,
+            "verified_transactions": verified_count,
+            "pending_transactions": pending_count,
+            "recent_transactions": recent_transactions,
+            "wallet_address": wallet_address,
+            "registered": True
+        }
+        
+    except Exception as e:
+        logger.error(f"Dashboard error: {e}")
+        # Return safe default structure even on error
+        return {
+            "sme_id": None,
+            "company_name": "Error Loading Data",
+            "total_transactions": 0,
+            "total_amount": 0.0,
+            "verified_transactions": 0,
+            "pending_transactions": 0,
+            "recent_transactions": [],
+            "wallet_address": wallet_address,
+            "registered": False,
+            "error": str(e)
+        }
+
+@app.get("/api/audit-trail/{wallet_address}")
+async def get_audit_trail(wallet_address: str, db: Session = Depends(get_db)):
+    """Get audit trail for an SME by wallet address"""
+    try:
+        # Find SME by wallet address
+        sme = db.query(SME).filter(SME.wallet_address == wallet_address.lower()).first()
+        if not sme:
+            return {
+                "sme_address": wallet_address,
+                "company_name": "Unknown",
+                "total_transactions": 0,
+                "transactions": []
+            }
+        
+        # Get all transactions for this SME
+        transactions = db.query(Transaction).filter(
+            Transaction.sme_id == sme.id
+        ).order_by(Transaction.created_at.desc()).all()
+        
+        transaction_list = []
+        for tx in transactions:
+            transaction_list.append({
+                "token_id": tx.token_id,
+                "transaction_type": tx.transaction_type,
+                "amount": float(tx.amount),
+                "description": tx.description or "",
+                "created_at": tx.created_at.isoformat(),
+                "verification_status": tx.verification_status,
+                "blockchain_hash": tx.blockchain_hash,
+                "ipfs_hash": tx.ipfs_hash
+            })
+        
+        return {
+            "sme_address": wallet_address,
+            "company_name": sme.company_name,
+            "total_transactions": len(transactions),
+            "transactions": transaction_list
+        }
+        
+    except Exception as e:
+        logger.error(f"Audit trail error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 async def authorize_sme_on_blockchain(wallet_address: str, sme_id: int, db: Session):
     """Background task to authorize SME on blockchain"""

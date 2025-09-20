@@ -102,7 +102,7 @@ const TransactionUpload = ({ account, web3, smeData, onUploadSuccess }) => {
       formDataToSend.append('description', formData.description);
 
       const response = await axios.post(
-        'http://localhost:8000/api/transaction/upload',
+        'http://localhost:8001/api/transaction/upload',
         formDataToSend,
         {
           headers: {
